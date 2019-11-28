@@ -1,0 +1,47 @@
+Net(
+  (cnn): Sequential(
+    (conv0): Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm0): BatchNorm2d(64, eps=1e-05, moment0um=0.1, affine=True, track_running_stats=True)
+    (relu0): LeakyReLU(negative_slope=0.2, inplace=True)
+    (pooling0): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+
+    (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu1): LeakyReLU(negative_slope=0.2, inplace=True)
+    (pooling1): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+
+    (conv2): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu2): LeakyReLU(negative_slope=0.2, inplace=True)
+
+    (conv3): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm3): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu3): LeakyReLU(negative_slope=0.2, inplace=True)
+    (pooling2): MaxPool2d(kernel_size=(2, 2), stride=(2, 1), padding=(0, 0), dilation=1, ceil_mode=False)
+
+    (conv4): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm4): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu4): LeakyReLU(negative_slope=0.2, inplace=True)
+    
+    (conv5): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm5): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu5): LeakyReLU(negative_slope=0.2, inplace=True)
+  )
+  (branch1): Sequential(
+    (pooling7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (conv9): Conv2d(512, 512, kernel_size=(2, 2), stride=(2, 2))
+    (batchnorm9): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu9): ReLU(inplace=True)
+  )
+  (branch2): Sequential(
+    (pooling3): MaxPool2d(kernel_size=(2, 2), stride=(2, 1), padding=(0, 0), dilation=1, ceil_mode=False)
+    (conv7): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (batchnorm7): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu7): ReLU(inplace=True)
+    (conv8): Conv2d(512, 512, kernel_size=(2, 2), stride=(1, 1))
+    (batchnorm8): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu8): ReLU(inplace=True)
+  )
+  (fc1): Linear(in_features=512, out_features=76, bias=True)
+  (fc2): Linear(in_features=512, out_features=76, bias=True)
+)
