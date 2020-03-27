@@ -337,8 +337,8 @@ def main():
     dev = torch.device('cpu')
 
     #load trained weights
-    weights = torch.load('../model/model_fc_pretrain_base_text_55.pth', dev)
-    weights_color = torch.load('../model/model_fc_pretrain_color_branch_55.pth', dev)
+    weights = torch.load('../model/model_LPR_text.pth', dev)
+    weights_color = torch.load('../model/model_LPR_color.pth', dev)
 
     #build engine
     engine = build_engine(weights, weights_color)

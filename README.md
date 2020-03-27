@@ -7,3 +7,8 @@ So far, the program can only be used for single picture recognition(single batch
 Clone this project to your directory
 First, you need to create 'model/' folder to store the model 'crnn_best.pth'
 Then, running trt.py for image recognition
+
+trt_color.py add a color branch to recognize LP color, trt_color_multibatch.py is LPR trt code inferenced with a batch.
+
+# pretrained model
+Model is available on https://pan.baidu.com/s/1VQMZWlHPNgcVYADKOtS25w (pc0v)
