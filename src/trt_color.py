@@ -12,8 +12,7 @@ import pycuda.autoinit
 
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
-
-def decode(pred):
+def decode_text(pred):
     dic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '京',
            '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '贵', '云', '藏', '陕', '甘', '青', '宁', '新', '领', '学', '使', '警', "挂", '港', '澳', "电", "*"]
 
@@ -25,15 +24,37 @@ def decode(pred):
         if output_list[i] != 0 and (not (i > 0 and output_list[i - 1] == output_list[i])):
             char_list.append(dic[output_list[i] - 1])
     return ''.join(char_list)
-    # for index in range(output_list.shape[0]):
-    #     if output_list[index] != 75:
-    #         if index == 0:
-    #             pred_char += (dic[int(output_list[index])-1])
-    #         else:
-    #             if output_list[index] != output_list[index-1]:
-    #                 pred_char += (dic[int(output_list[index])])
 
-    return char_list
+def decode(pred):
+    dic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '京',
+           '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '贵', '云', '藏', '陕', '甘', '青', '宁', '新', '领', '学', '使', '警', "挂", '港', '澳', "电", "*"]
+    probs_list=[]
+    max_probs = 0
+    print(pred.shape)
+    output_list = pred.argmax(axis=1)
+    char_list = []
+    for i in range(len(output_list)):
+        print(str(i), output_list[i], pred[i][output_list[i]])
+        if output_list[i] !=0:
+            if i == 0:
+                char_list.append(dic[output_list[i] - 1])
+                max_probs = pred[i][output_list[i]]
+
+            else:
+                if not output_list[i - 1] == output_list[i]:
+                    char_list.append(dic[output_list[i] - 1])
+                    probs = pred[i][output_list[i]]
+                    if max_probs != 0:
+                        probs_list.append(max_probs)
+                    max_probs = probs
+
+                else:
+                    probs = pred[i][output_list[i]]
+                    if probs > max_probs:
+                        max_probs = probs
+    probs_list.append(max_probs)
+        
+    return ''.join(char_list), probs_list
 
 class ModelData(object):
     INPUT_NAME = "data"
@@ -248,7 +269,14 @@ def populate_network(network, weights, weights_color):
     cat1.axis = 0
     cat1.get_output(0).name = ModelData.OUTPUT_NAME3
     permute3 = network.add_shuffle(cat1.get_output(0))
+    permute3.reshape_dims = [0, -1]
+    print('permute3')
+    print(permute3.get_output(0).shape)
     # permute3.reshape_dims = [0, -1]
+    re_softmax = network.add_softmax(input=permute3.get_output(0))
+    re_softmax.axes = 2
+    print('re_softmax')
+    print(re_softmax.get_output(0).shape)
 
     #branch color
     c_pooling0 = max_pooling_trt(relu2.get_output(0), network, stride=(2, 2))
@@ -274,7 +302,9 @@ def populate_network(network, weights, weights_color):
     print(fc_c.get_output(0).shape)
 
     # mark output
-    network.mark_output(tensor=permute3.get_output(0))
+    network.mark_output(tensor=re_softmax.get_output(0))
+    # network.mark_output(tensor=permute3.get_output(0))
+
     network.mark_output(tensor=fc_c.get_output(0))
 
 
@@ -329,8 +359,8 @@ def do_inference(context, h_input, d_input, h_output, d_output, h_output_c, d_ou
     stream.synchronize()
 def main():
     #test_image loading
-    # test_image = "/rdata/qi.liu/code/TRT/tensorrt_carplate_rec/src/7.jpg"
-    test_image = "/rdata/qi.liu/code/TRT/tensorrt_carplate_rec/src/carplate_test.jpg"
+    test_image = "/rdata/qi.liu/code/TRT/tensorrt_carplate_rec/src/7.jpg"
+    # test_image = "/rdata/qi.liu/code/TRT/tensorrt_carplate_rec/src/carplate_test.jpg"
 
     color_dict=['蓝','黄','绿','黑','白']
     # use cpu for robust
@@ -339,6 +369,7 @@ def main():
     #load trained weights
     weights = torch.load('../model/model_LPR_text.pth', dev)
     weights_color = torch.load('../model/model_LPR_color.pth', dev)
+    
 
     #build engine
     engine = build_engine(weights, weights_color)
@@ -352,11 +383,22 @@ def main():
         # conduct inference
         do_inference(context, h_input, d_input, h_output, d_output, h_output_c, d_output_c, stream )
         # output is a 1D tensor, first reshape
+        # print(h_output.shape, h_output_c.shape)
         output_text = h_output.reshape([28, 76])
-        pred_txt = decode(output_text)
+
+        '''
+        # results
+            pred_txt: 车牌号
+            probs :置信度
+            pred_color：预测颜色
+        '''
+        pred_txt, probs = decode(output_text)
+        # print(pred_txt, probs)
+        # print(decode_text(output_text))
         max_index = np.argmax(h_output_c)
         pred_color = color_dict[max_index]
-        print("Prediction: " + pred_txt+"  color:"+pred_color)
+        print("color:"+pred_color+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
+
 
 
 if __name__ == '__main__':

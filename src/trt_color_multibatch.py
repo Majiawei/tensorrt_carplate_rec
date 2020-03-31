@@ -14,7 +14,7 @@ import time
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 
-def decode(pred):
+def decode_text(pred):
     dic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '京',
            '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '贵', '云', '藏', '陕', '甘', '青', '宁', '新', '领', '学', '使', '警', "挂", '港', '澳', "电", "*"]
 
@@ -26,19 +26,41 @@ def decode(pred):
         if output_list[i] != 0 and (not (i > 0 and output_list[i - 1] == output_list[i])):
             char_list.append(dic[output_list[i] - 1])
     return ''.join(char_list)
-    # for index in range(output_list.shape[0]):
-    #     if output_list[index] != 75:
-    #         if index == 0:
-    #             pred_char += (dic[int(output_list[index])-1])
-    #         else:
-    #             if output_list[index] != output_list[index-1]:
-    #                 pred_char += (dic[int(output_list[index])])
 
-    return char_list
+def decode(pred):
+    dic = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '京',
+           '沪', '津', '渝', '冀', '晋', '蒙', '辽', '吉', '黑', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '贵', '云', '藏', '陕', '甘', '青', '宁', '新', '领', '学', '使', '警', "挂", '港', '澳', "电", "*"]
+    probs_list=[]
+    max_probs = 0
+    print(pred.shape)
+    output_list = pred.argmax(axis=1)
+    char_list = []
+    for i in range(len(output_list)):
+        # print(str(i), output_list[i], pred[i][output_list[i]])
+        if output_list[i] !=0:
+            if i == 0:
+                char_list.append(dic[output_list[i] - 1])
+                max_probs = pred[i][output_list[i]]
+
+            else:
+                if not output_list[i - 1] == output_list[i]:
+                    char_list.append(dic[output_list[i] - 1])
+                    probs = pred[i][output_list[i]]
+                    if max_probs != 0:
+                        probs_list.append(max_probs)
+                    max_probs = probs
+
+                else:
+                    probs = pred[i][output_list[i]]
+                    if probs > max_probs:
+                        max_probs = probs
+    probs_list.append(max_probs)
+        
+    return ''.join(char_list), probs_list
 
 class ModelData(object):
     INPUT_NAME = "data"
-    BATCH_SIZE = 64
+    BATCH_SIZE = 12
     INPUT_SHAPE = (1, 3, 32, 100)
     OUTPUT_NAME1 = "fc1"
     OUTPUT_NAME2 = "fc2"
@@ -227,9 +249,17 @@ def populate_network(network, weights, weights_color):
     cat1.get_output(0).name = ModelData.OUTPUT_NAME3
     permute3 = network.add_shuffle(cat1.get_output(0))
     permute3.reshape_dims = [0, 0, -1]
-    permute3.second_transpose = [1,0,2]
+    permute3.second_transpose = trt.Permutation([1,2,0])
     print('permute3')
     print(permute3.get_output(0).shape)
+    re_softmax = network.add_softmax(input=permute3.get_output(0))
+    re_softmax.axes = 2
+    print('re_softmax')
+    print(re_softmax.get_output(0).shape)
+    permute4 = network.add_shuffle(re_softmax.get_output(0))
+    permute4.first_transpose = trt.Permutation([0,2,1])
+    print('permute4')
+    print(permute4.get_output(0).shape)
 
     #branch color
     c_pooling0 = max_pooling_trt(relu2.get_output(0), network, stride=(2, 2))
@@ -255,7 +285,7 @@ def populate_network(network, weights, weights_color):
     print(fc_c.get_output(0).shape)
 
     #定义网络输出
-    network.mark_output(tensor=permute3.get_output(0))
+    network.mark_output(tensor=permute4.get_output(0))
     network.mark_output(tensor=fc_c.get_output(0))
 
 
@@ -328,10 +358,18 @@ def main():
         text_preds = trt_outputs[0].reshape([-1, 28, 76])
         color_preds = trt_outputs[1].reshape([-1, 5])
         print(text_preds.shape, color_preds.shape)
+
         #解码输出结果，统计识别性能
+        '''
+        # results
+            pred_txt: 车牌号
+            probs :置信度
+            pred_color：预测颜色
+        '''
         for i in range(text_preds.shape[0]):
             output_text = text_preds[i,:,:]
-            pred_txt = decode(output_text)
+
+            pred_txt, probs = decode(output_text)
             output_c = color_preds[i,:]
             max_index = np.argmax(output_c, 0)
             # print(output_text, output_c)
@@ -340,12 +378,11 @@ def main():
             #     count_text_right += 1
             # if pred_color == '蓝':
             #     count_color_right += 1
-            print("Prediction: " + pred_txt+"  color:"+pred_color)
+            print("color:"+pred_color+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
 
-            # print("Prediction: " + pred_txt+"  color:"+pred_color+'  GT:  '+ labels[i])
     
-    print('Text Accuracy: ', count_text_right/len(labels), str(count_text_right), str(len(labels)))
-    print('Color Accuracy: ', count_color_right/len(labels),str(count_color_right), str(len(labels)))
+    # print('Text Accuracy: ', count_text_right/len(labels), str(count_text_right), str(len(labels)))
+    # print('Color Accuracy: ', count_color_right/len(labels),str(count_color_right), str(len(labels)))
     print(end-start)
 
 
