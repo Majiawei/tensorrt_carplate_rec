@@ -283,10 +283,14 @@ def populate_network(network, weights, weights_color):
     fc_c.get_output(0).name = ModelData.OUTPUT_COLOR_NAME
     print('fc_c')
     print(fc_c.get_output(0).shape)
+    c_softmax = network.add_softmax(input=fc_c.get_output(0))
+    c_softmax.axes = 2
+    print('c_softmax')
+    print(c_softmax.get_output(0).shape)
 
     #定义网络输出
     network.mark_output(tensor=permute4.get_output(0))
-    network.mark_output(tensor=fc_c.get_output(0))
+    network.mark_output(tensor=c_softmax.get_output(0))
 
 
 def build_engine(weights, weights_color, batch_size=4):
@@ -357,7 +361,7 @@ def main():
         #对输出进行后处理，每个output都被flatten到一个一维向量，要先reshape
         text_preds = trt_outputs[0].reshape([-1, 28, 76])
         color_preds = trt_outputs[1].reshape([-1, 5])
-        print(text_preds.shape, color_preds.shape)
+        # print(text_preds.shape, color_preds.shape)
 
         #解码输出结果，统计识别性能
         '''
@@ -365,6 +369,7 @@ def main():
             pred_txt: 车牌号
             probs :置信度
             pred_color：预测颜色
+            color_confi: 颜色置信度
         '''
         for i in range(text_preds.shape[0]):
             output_text = text_preds[i,:,:]
@@ -372,13 +377,18 @@ def main():
             pred_txt, probs = decode(output_text)
             output_c = color_preds[i,:]
             max_index = np.argmax(output_c, 0)
-            # print(output_text, output_c)
+            # print(output_c)
             pred_color = color_dict[max_index]
+            color_confi = output_c[max_index]
+
             # if pred_txt == labels[i]:
             #     count_text_right += 1
             # if pred_color == '蓝':
             #     count_color_right += 1
-            print("color:"+pred_color+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
+            # print("color:"+pred_color+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
+            print("color:"+pred_color+"  color_confi: "+str(color_confi)+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
+
+
 
     
     # print('Text Accuracy: ', count_text_right/len(labels), str(count_text_right), str(len(labels)))

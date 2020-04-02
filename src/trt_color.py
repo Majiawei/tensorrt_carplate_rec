@@ -34,7 +34,7 @@ def decode(pred):
     output_list = pred.argmax(axis=1)
     char_list = []
     for i in range(len(output_list)):
-        print(str(i), output_list[i], pred[i][output_list[i]])
+        # print(str(i), output_list[i], pred[i][output_list[i]])
         if output_list[i] !=0:
             if i == 0:
                 char_list.append(dic[output_list[i] - 1])
@@ -300,12 +300,16 @@ def populate_network(network, weights, weights_color):
     fc_c.get_output(0).name = ModelData.OUTPUT_COLOR_NAME
     print('fc_c')
     print(fc_c.get_output(0).shape)
+    c_softmax = network.add_softmax(input=fc_c.get_output(0))
+    c_softmax.axes = 1
+    print('c_softmax')
+    print(c_softmax.get_output(0).shape)
 
     # mark output
     network.mark_output(tensor=re_softmax.get_output(0))
     # network.mark_output(tensor=permute3.get_output(0))
 
-    network.mark_output(tensor=fc_c.get_output(0))
+    network.mark_output(tensor=c_softmax.get_output(0))
 
 
 def build_engine(weights, weights_color):
@@ -391,13 +395,16 @@ def main():
             pred_txt: 车牌号
             probs :置信度
             pred_color：预测颜色
+            color_confi: 颜色置信度
         '''
         pred_txt, probs = decode(output_text)
         # print(pred_txt, probs)
         # print(decode_text(output_text))
+        # print(h_output_c)
         max_index = np.argmax(h_output_c)
         pred_color = color_dict[max_index]
-        print("color:"+pred_color+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
+        color_confi = h_output_c[max_index]
+        print("color:"+pred_color+"  color_confi: "+str(color_confi)+"  Prediction: " + pred_txt+"  Text_probs: " + str(probs))
 
 
 
